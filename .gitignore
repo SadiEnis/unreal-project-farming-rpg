@@ -1,0 +1,35 @@
+
+# ==========================================
+# Unreal Engine - Generated Files
+# ==========================================
+
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+
+# Plugin generated data
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# ==========================================
+# IDE & Editor Files
+# ==========================================
+
+.vs/
+.vscode/
+.idea/
+
+*.sln
+*.suo
+*.VC.db
+*.VC.opendb
+*.code-workspace
+
+# ==========================================
+# OS Generated Files
+# ==========================================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
