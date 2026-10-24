@@ -26,6 +26,7 @@ void AFarmPlot::BeginPlay()
     }
 
     DayManager->OnDayAdvanced.AddDynamic(this, &AFarmPlot::HandleDayAdvanced); // Subscribe to the OnDayAdvanced event
+    OnFarmVisualStateChanged();
 }
 
 void AFarmPlot::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -140,6 +141,34 @@ FText AFarmPlot::GetInteractionText_Implementation() const
         "Hasat Et");
 }
 
+
+
+bool AFarmPlot::CanInteract_Implementation() const
+{
+    if (SoilState == EFarmSoilState::Untilled)
+        return CropState == EFarmCropState::Empty;
+
+    if (SoilState != EFarmSoilState::Tilled)
+        return false;
+
+    switch (CropState)
+    {
+        case EFarmCropState::Empty:
+            return true;
+
+        case EFarmCropState::Growing:
+            return !bIsWatered;
+
+        case EFarmCropState::Harvestable:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+
+
 void AFarmPlot::HandleDayAdvanced(int32 NewDay)
 {
     if (CropState != EFarmCropState::Growing)
@@ -179,6 +208,8 @@ void AFarmPlot::HandleDayAdvanced(int32 NewDay)
         *GetName(),
         GrowthProgress,
         RequiredGrowthDays);
+
+    OnFarmVisualStateChanged();
 }
 
 bool AFarmPlot::TryTillSoil()
@@ -189,6 +220,8 @@ bool AFarmPlot::TryTillSoil()
         return false;
 
     SoilState = EFarmSoilState::Tilled;
+
+    OnFarmVisualStateChanged();
     return true;
 }
 
@@ -203,6 +236,7 @@ bool AFarmPlot::TryPlantSeed()
     GrowthProgress = 0;
     bIsWatered = false;
 
+    OnFarmVisualStateChanged();
     return true;
 }
 
@@ -216,6 +250,7 @@ bool AFarmPlot::TryWaterCrop()
         return false;
 
     bIsWatered = true;
+    OnFarmVisualStateChanged();
     return true;
 }
 
@@ -230,5 +265,6 @@ bool AFarmPlot::TryHarvestCrop()
     GrowthProgress = 0;
     bIsWatered = false;
 
+    OnFarmVisualStateChanged();
     return true;
 }

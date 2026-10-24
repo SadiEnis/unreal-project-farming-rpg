@@ -36,6 +36,8 @@ public:
 
 	virtual FText GetInteractionText_Implementation() const override;
 
+    virtual bool CanInteract_Implementation() const override;
+
 protected:
 
     virtual void BeginPlay() override;
@@ -43,6 +45,9 @@ protected:
 
     UFUNCTION()
     void HandleDayAdvanced(int32 NewDay);
+
+    UFUNCTION(BlueprintImplementableEvent, Category = "Farming|Visuals")
+    void OnFarmVisualStateChanged();
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Farming|Soil")
     EFarmSoilState SoilState = EFarmSoilState::Untilled;

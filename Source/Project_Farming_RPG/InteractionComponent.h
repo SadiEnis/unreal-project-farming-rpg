@@ -27,6 +27,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
     NewText
 );
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+    FOnInteractionAvailabilityChanged,
+    bool,
+    bCanInteract
+);
+
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PROJECT_FARMING_RPG_API UInteractionComponent : public UActorComponent
@@ -55,6 +61,7 @@ private:
 	bool HasClearLineOfSight(AActor* Candidate) const;
 	void UpdateTarget();
 	FText CachedInteractionText;
+	bool bCachedCanInteract = false;
 
 public:	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -70,6 +77,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Interaction|Events")
 	FOnInteractionTextChanged OnInteractionTextChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Interaction–Events")
+	FOnInteractionAvailabilityChanged OnInteractionAvailabilityChanged;
 
 
 	UFUNCTION(BlueprintCallable, Category = "Interaction")

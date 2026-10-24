@@ -22,4 +22,12 @@ public:
 
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
     FText GetInteractionText() const;
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
+    bool CanInteract() const;
+
+    virtual bool CanInteract_Implementation() const
+    {
+        return true;
+    }
 };

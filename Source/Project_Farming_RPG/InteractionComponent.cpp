@@ -58,11 +58,10 @@ void UInteractionComponent::TryInteract()
 		return;
 	}
 
-	if (!Target->GetClass()->ImplementsInterface(
-			UInteractable::StaticClass()))
-	{
+	if (!IInteractable::Execute_CanInteract(Target))
 		return;
-	}
+	if (!Target->GetClass()->ImplementsInterface(UInteractable::StaticClass()))
+		return;
 
 	IInteractable::Execute_Interact(Target, GetOwner());
 	OnInteractionExecuted.Broadcast(Target);
@@ -105,7 +104,6 @@ void UInteractionComponent::UpdateTarget()
 		ActorsToIgnore,
 		OverlappingActors);
 
-	int32 ValidCandidateCount = 0;
 	AActor *BestCandidate = nullptr;
 	float BestScore = -1.0f;
 
@@ -150,13 +148,6 @@ void UInteractionComponent::UpdateTarget()
 			DistanceScore * DistanceWeight +
 			ViewScore * ViewWeight;
 
-		UE_LOG(
-			LogTemp,
-			Warning,
-			TEXT("Candidate: %s | Score: %.2f"),
-			*GetNameSafe(Candidate),
-			Score);
-
 		if (Score > BestScore)
 		{
 			BestScore = Score;
@@ -164,42 +155,55 @@ void UInteractionComponent::UpdateTarget()
 		}
 	}
 
-	FText NewInteractionText = FText::GetEmpty();
+	const bool bTargetChanged =
+		CurrentTarget.Get() != BestCandidate;
 
-	if (IsValid(BestCandidate))
-	{
-		NewInteractionText =
-			IInteractable::Execute_GetInteractionText(
-				BestCandidate);
-	}
-
-	if (!CachedInteractionText.EqualTo(NewInteractionText))
-	{
-		CachedInteractionText = NewInteractionText;
-
-		OnInteractionTextChanged.Broadcast(
-			CachedInteractionText);
-	}
-
-	if (CurrentTarget.Get() != BestCandidate)
+	if (bTargetChanged)
 	{
 		CurrentTarget = BestCandidate;
 
 		UE_LOG(
 			LogTemp,
-			Warning,
+			Log,
 			TEXT("Target Changed: %s"),
 			*GetNameSafe(BestCandidate));
 
 		OnTargetChanged.Broadcast(BestCandidate);
 	}
 
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("BEST CANDIDATE: %s | Score: %.2f"),
-		*GetNameSafe(BestCandidate),
-		BestScore);
+	FText NewInteractionText = FText::GetEmpty();
+
+    if (IsValid(BestCandidate))
+    {
+        NewInteractionText =
+            IInteractable::Execute_GetInteractionText(
+                BestCandidate
+            );
+    }
+
+    if (!CachedInteractionText.EqualTo(NewInteractionText))
+    {
+        CachedInteractionText = NewInteractionText;
+
+        OnInteractionTextChanged.Broadcast(
+            CachedInteractionText
+        );
+    }
+
+    // 3. Check whether interaction availability has changed.
+    const bool bCanInteract =
+        IsValid(BestCandidate) &&
+        IInteractable::Execute_CanInteract(BestCandidate);
+
+    if (bTargetChanged ||
+        bCanInteract != bCachedCanInteract)
+    {
+        bCachedCanInteract = bCanInteract;
+
+        OnInteractionAvailabilityChanged.Broadcast(
+            bCanInteract
+        );
+    }
 }
 
 bool UInteractionComponent::HasClearLineOfSight(AActor *Candidate) const
