@@ -53,4 +53,6 @@ protected:
 
 private:
 	bool TryTillSoil();
+    bool TryPlantSeed(); // private because we don't want to allow planting seeds without checking if the soil is tilled and empty
+    bool TryWaterCrop();
 };
