@@ -8,12 +8,18 @@ AFarmPlot::AFarmPlot()
     PrimaryActorTick.bCanEverTick = false;
 }
 
+
 void AFarmPlot::BeginPlay()
 {
     Super::BeginPlay();
+    OnFarmVisualStateChanged();
 
     DayManager = Cast<ADayManager>(
-        UGameplayStatics::GetActorOfClass(this, ADayManager::StaticClass())); // Get the DayManager actor in the world
+        UGameplayStatics::GetActorOfClass(
+            this,
+            ADayManager::StaticClass()
+        )
+    );
 
     if (!IsValid(DayManager))
     {
@@ -21,13 +27,14 @@ void AFarmPlot::BeginPlay()
             LogTemp,
             Warning,
             TEXT("%s: DayManager not found!"),
-            *GetName());
+            *GetName()
+        );
         return;
     }
 
-    DayManager->OnDayAdvanced.AddDynamic(this, &AFarmPlot::HandleDayAdvanced); // Subscribe to the OnDayAdvanced event
-    OnFarmVisualStateChanged();
+    DayManager->OnDayAdvanced.AddDynamic(this, &AFarmPlot::HandleDayAdvanced);
 }
+
 
 void AFarmPlot::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
@@ -169,10 +176,12 @@ bool AFarmPlot::CanInteract_Implementation() const
 
 
 
+
 void AFarmPlot::HandleDayAdvanced(int32 NewDay)
 {
     if (CropState != EFarmCropState::Growing)
         return;
+
     if (!bIsWatered)
     {
         UE_LOG(
@@ -180,10 +189,10 @@ void AFarmPlot::HandleDayAdvanced(int32 NewDay)
             Display,
             TEXT("%s: Growth paused on day %d (dry)."),
             *GetName(),
-            NewDay);
+            NewDay
+        );
         return;
     }
-    // This plot is watered, so we can advance the growth progress
 
     ++GrowthProgress;
     bIsWatered = false;
@@ -196,21 +205,24 @@ void AFarmPlot::HandleDayAdvanced(int32 NewDay)
             LogTemp,
             Display,
             TEXT("%s: Crop is ready to harvest!"),
-            *GetName());
-        return;
+            *GetName()
+        );
     }
-    // Plot is still growing, log the current progress
-
-    UE_LOG(
-        LogTemp,
-        Display,
-        TEXT("%s: Growth progress %d/%d"),
-        *GetName(),
-        GrowthProgress,
-        RequiredGrowthDays);
+    else
+    {
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("%s: Growth progress %d/%d"),
+            *GetName(),
+            GrowthProgress,
+            RequiredGrowthDays
+        );
+    }
 
     OnFarmVisualStateChanged();
 }
+
 
 bool AFarmPlot::TryTillSoil()
 {

@@ -38,11 +38,6 @@ void UInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-void UInteractionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-}
-
 void UInteractionComponent::TryInteract()
 {
 	UpdateTarget();
@@ -58,130 +53,174 @@ void UInteractionComponent::TryInteract()
 		return;
 	}
 
-	if (!IInteractable::Execute_CanInteract(Target))
-		return;
 	if (!Target->GetClass()->ImplementsInterface(UInteractable::StaticClass()))
+		return;
+	if (!IInteractable::Execute_CanInteract(Target))
 		return;
 
 	IInteractable::Execute_Interact(Target, GetOwner());
 	OnInteractionExecuted.Broadcast(Target);
 }
 
+
 void UInteractionComponent::UpdateTarget()
 {
-	AActor *OwnerActor = GetOwner();
-	if (!IsValid(OwnerActor))
-		return;
+    AActor* BestCandidate =
+        FindBestInteractionTarget();
 
-	APawn *OwnerPawn = Cast<APawn>(OwnerActor);
-	if (!OwnerPawn)
-		return;
+    RefreshTargetState(BestCandidate);
+}
 
-	APlayerController *PlayerController = Cast<APlayerController>(OwnerPawn->GetController());
-	if (!IsValid(PlayerController))
-		return;
+AActor* UInteractionComponent::FindBestInteractionTarget() const
+{
+    AActor* OwnerActor = GetOwner();
 
-	FVector ViewLocation;
-	FRotator ViewRotation;
-	PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+    if (!IsValid(OwnerActor))
+        return nullptr;
 
-	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+    if (DetectionRadius <= KINDA_SMALL_NUMBER)
+        return nullptr;
 
-	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
-	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+    APawn* OwnerPawn = Cast<APawn>(OwnerActor);
+    if (!OwnerPawn)
+        return nullptr;
 
-	TArray<AActor *> ActorsToIgnore;
-	ActorsToIgnore.Add(OwnerActor);
+    APlayerController* PlayerController =
+        Cast<APlayerController>(OwnerPawn->GetController());
 
-	TArray<AActor *> OverlappingActors;
+    if (!IsValid(PlayerController))
+        return nullptr;
 
-	UKismetSystemLibrary::SphereOverlapActors(
-		this,
-		OwnerActor->GetActorLocation(),
-		DetectionRadius,
-		ObjectTypes,
-		nullptr,
-		ActorsToIgnore,
-		OverlappingActors);
+    FVector ViewLocation;
+    FRotator ViewRotation;
 
-	AActor *BestCandidate = nullptr;
-	float BestScore = -1.0f;
+    PlayerController->GetPlayerViewPoint(
+        ViewLocation,
+        ViewRotation
+    );
 
-	for (AActor *Candidate : OverlappingActors)
-	{
-		if (!IsValid(Candidate))
-			continue;
+    TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 
-		const bool bIsInteractable =
-			Candidate->GetClass()->ImplementsInterface(UInteractable::StaticClass());
+    ObjectTypes.Add(
+        UEngineTypes::ConvertToObjectType(ECC_WorldStatic)
+    );
 
-		if (!bIsInteractable)
-			continue;
+    ObjectTypes.Add(
+        UEngineTypes::ConvertToObjectType(ECC_WorldDynamic)
+    );
 
-		const FVector ToTarget =
-			Candidate->GetActorLocation() - ViewLocation;
+    TArray<AActor*> ActorsToIgnore;
+    ActorsToIgnore.Add(OwnerActor);
 
-		const float ViewScore = FVector::DotProduct(
-			ViewRotation.Vector(),
-			ToTarget.GetSafeNormal());
+    TArray<AActor*> OverlappingActors;
 
-		// Ignore targets behind or far outside our view.
-		if (ViewScore < 0.15f)
-			continue;
+    UKismetSystemLibrary::SphereOverlapActors(
+        this,
+        OwnerActor->GetActorLocation(),
+        DetectionRadius,
+        ObjectTypes,
+        nullptr,
+        ActorsToIgnore,
+        OverlappingActors
+    );
 
-		if (!HasClearLineOfSight(Candidate))
-			continue;
+    AActor* BestCandidate = nullptr;
+    float BestScore = -1.0f;
 
-		const float Distance = FVector::Dist(
-			OwnerActor->GetActorLocation(),
-			Candidate->GetActorLocation());
+    for (AActor* Candidate : OverlappingActors)
+    {
+        if (!IsValid(Candidate))
+            continue;
 
-		const float DistanceScore = 1.0f - FMath::Clamp(
-											   Distance / DetectionRadius,
-											   0.0f,
-											   1.0f);
+        if (!Candidate->GetClass()->ImplementsInterface(
+            UInteractable::StaticClass()))
+        {
+            continue;
+        }
 
-		constexpr float DistanceWeight = 0.4f;
-		constexpr float ViewWeight = 0.6f;
+        const FVector ToTarget =
+            Candidate->GetActorLocation() - ViewLocation;
 
-		const float Score =
-			DistanceScore * DistanceWeight +
-			ViewScore * ViewWeight;
+        const float ViewScore = FVector::DotProduct(
+            ViewRotation.Vector(),
+            ToTarget.GetSafeNormal()
+        );
 
-		if (Score > BestScore)
-		{
-			BestScore = Score;
-			BestCandidate = Candidate;
-		}
-	}
+        // Ignore targets outside the allowed view direction.
+        if (ViewScore < 0.15f)
+            continue;
 
-	const bool bTargetChanged =
-		CurrentTarget.Get() != BestCandidate;
+        if (!HasClearLineOfSight(Candidate))
+            continue;
 
-	if (bTargetChanged)
-	{
-		CurrentTarget = BestCandidate;
+        const float Distance = FVector::Dist(
+            OwnerActor->GetActorLocation(),
+            Candidate->GetActorLocation()
+        );
 
-		UE_LOG(
-			LogTemp,
-			Log,
-			TEXT("Target Changed: %s"),
-			*GetNameSafe(BestCandidate));
+        const float DistanceScore = 1.0f - FMath::Clamp(
+            Distance / DetectionRadius,
+            0.0f,
+            1.0f
+        );
 
-		OnTargetChanged.Broadcast(BestCandidate);
-	}
+        constexpr float DistanceWeight = 0.4f;
+        constexpr float ViewWeight = 0.6f;
 
-	FText NewInteractionText = FText::GetEmpty();
+        const float Score =
+            DistanceScore * DistanceWeight +
+            ViewScore * ViewWeight;
 
-    if (IsValid(BestCandidate))
+        if (Score > BestScore)
+        {
+            BestScore = Score;
+            BestCandidate = Candidate;
+        }
+    }
+
+    return BestCandidate;
+}
+
+
+void UInteractionComponent::RefreshTargetState(
+    AActor* NewTarget)
+{
+    if (!IsValid(NewTarget) ||
+        !NewTarget->GetClass()->ImplementsInterface(
+            UInteractable::StaticClass()))
+    {
+        NewTarget = nullptr;
+    }
+
+    const bool bTargetChanged =
+        CurrentTarget.Get() != NewTarget;
+
+    if (bTargetChanged)
+    {
+        CurrentTarget = NewTarget;
+
+        UE_LOG(
+            LogTemp,
+            Log,
+            TEXT("Target Changed: %s"),
+            *GetNameSafe(NewTarget)
+        );
+
+        OnTargetChanged.Broadcast(NewTarget);
+    }
+
+    FText NewInteractionText = FText::GetEmpty();
+
+    if (IsValid(NewTarget))
     {
         NewInteractionText =
             IInteractable::Execute_GetInteractionText(
-                BestCandidate
+                NewTarget
             );
     }
 
-    if (!CachedInteractionText.EqualTo(NewInteractionText))
+    if (bTargetChanged ||
+        !CachedInteractionText.EqualTo(NewInteractionText))
     {
         CachedInteractionText = NewInteractionText;
 
@@ -190,10 +229,9 @@ void UInteractionComponent::UpdateTarget()
         );
     }
 
-    // 3. Check whether interaction availability has changed.
     const bool bCanInteract =
-        IsValid(BestCandidate) &&
-        IInteractable::Execute_CanInteract(BestCandidate);
+        IsValid(NewTarget) &&
+        IInteractable::Execute_CanInteract(NewTarget);
 
     if (bTargetChanged ||
         bCanInteract != bCachedCanInteract)
@@ -205,6 +243,7 @@ void UInteractionComponent::UpdateTarget()
         );
     }
 }
+
 
 bool UInteractionComponent::HasClearLineOfSight(AActor *Candidate) const
 {

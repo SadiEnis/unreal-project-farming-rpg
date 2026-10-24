@@ -57,18 +57,15 @@ private:
 	float SearchInterval = 0.1f;
 
 	FTimerHandle TargetSearchTimer;
-
-	bool HasClearLineOfSight(AActor* Candidate) const;
-	void UpdateTarget();
 	FText CachedInteractionText;
 	bool bCachedCanInteract = false;
+	
+	bool HasClearLineOfSight(AActor* Candidate) const;
+	AActor* FindBestInteractionTarget() const;
+	void RefreshTargetState(AActor* NewTarget);
+	void UpdateTarget();
 
 public:	
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction", meta = (ClampMing = "0.0"))
-	float TraceDistance = 250.0f;
-
 	UPROPERTY(BlueprintAssignable, Category = "Interaction|Events")
 	FOnInteractionTargetChanged OnTargetChanged;
 
@@ -78,7 +75,7 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Interaction|Events")
 	FOnInteractionTextChanged OnInteractionTextChanged;
 
-	UPROPERTY(BlueprintAssignable, Category = "Interaction–Events")
+	UPROPERTY(BlueprintAssignable, Category = "Interaction|Events")
 	FOnInteractionAvailabilityChanged OnInteractionAvailabilityChanged;
 
 
