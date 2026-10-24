@@ -64,9 +64,8 @@ void UInteractionComponent::TryInteract()
 		return;
 	}
 
-	IInteractable::Execute_Interact(
-		Target,
-		GetOwner());
+	IInteractable::Execute_Interact(Target, GetOwner());
+	OnInteractionExecuted.Broadcast(Target);
 }
 
 void UInteractionComponent::UpdateTarget()

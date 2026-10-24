@@ -15,6 +15,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
 ); // Called when the interaction target changes
 
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+    FOnInteractionExecuted,
+    AActor*,
+    InteractedActor
+);
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PROJECT_FARMING_RPG_API UInteractionComponent : public UActorComponent
 {
@@ -50,6 +56,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Interaction|Events")
 	FOnInteractionTargetChanged OnTargetChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Interaction|Events")
+	FOnInteractionExecuted OnInteractionExecuted;
 
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void TryInteract();
