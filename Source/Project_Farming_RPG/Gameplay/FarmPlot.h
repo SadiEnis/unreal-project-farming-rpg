@@ -7,6 +7,8 @@
 
 #include "FarmPlot.generated.h"
 
+class ADayManager;
+
 UENUM(BlueprintType)
 enum class EFarmSoilState : uint8
 {
@@ -36,6 +38,12 @@ public:
 
 protected:
 
+    virtual void BeginPlay() override;
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+    UFUNCTION()
+    void HandleDayAdvanced(int32 NewDay);
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Farming|Soil")
     EFarmSoilState SoilState = EFarmSoilState::Untilled;
 
@@ -55,4 +63,8 @@ private:
 	bool TryTillSoil();
     bool TryPlantSeed(); // private because we don't want to allow planting seeds without checking if the soil is tilled and empty
     bool TryWaterCrop();
+    bool TryHarvestCrop();
+
+    UPROPERTY(Transient)
+    TObjectPtr<ADayManager> DayManager = nullptr;
 };

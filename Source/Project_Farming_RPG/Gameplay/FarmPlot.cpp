@@ -1,8 +1,41 @@
 #include "FarmPlot.h"
+#include "Time/DayManager.h"
+
+#include "Kismet/GameplayStatics.h"
 
 AFarmPlot::AFarmPlot()
 {
     PrimaryActorTick.bCanEverTick = false;
+}
+
+void AFarmPlot::BeginPlay()
+{
+    Super::BeginPlay();
+
+    DayManager = Cast<ADayManager>(
+        UGameplayStatics::GetActorOfClass(this, ADayManager::StaticClass())); // Get the DayManager actor in the world
+
+    if (!IsValid(DayManager))
+    {
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("%s: DayManager not found!"),
+            *GetName());
+        return;
+    }
+
+    DayManager->OnDayAdvanced.AddDynamic(this, &AFarmPlot::HandleDayAdvanced); // Subscribe to the OnDayAdvanced event
+}
+
+void AFarmPlot::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    if (IsValid(DayManager))
+    {
+        DayManager->OnDayAdvanced.RemoveDynamic(this, &AFarmPlot::HandleDayAdvanced); // Unsubscribe from the OnDayAdvanced event
+    }
+
+    Super::EndPlay(EndPlayReason);
 }
 
 void AFarmPlot::Interact_Implementation(AActor *Interactor)
@@ -46,7 +79,23 @@ void AFarmPlot::Interact_Implementation(AActor *Interactor)
                 *GetName(),
                 *GetNameSafe(Interactor));
         }
+        return;
+    }
 
+    if (CropState == EFarmCropState::Harvestable)
+    {
+        if (TryHarvestCrop())
+        {
+            constexpr int32 HarvestQuantity = 1;
+
+            UE_LOG(
+                LogTemp,
+                Display,
+                TEXT("%s harvested %d crop(s) by %s"),
+                *GetName(),
+                HarvestQuantity,
+                *GetNameSafe(Interactor));
+        }
         return;
     }
 }
@@ -91,6 +140,47 @@ FText AFarmPlot::GetInteractionText_Implementation() const
         "Hasat Et");
 }
 
+void AFarmPlot::HandleDayAdvanced(int32 NewDay)
+{
+    if (CropState != EFarmCropState::Growing)
+        return;
+    if (!bIsWatered)
+    {
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("%s: Growth paused on day %d (dry)."),
+            *GetName(),
+            NewDay);
+        return;
+    }
+    // This plot is watered, so we can advance the growth progress
+
+    ++GrowthProgress;
+    bIsWatered = false;
+
+    if (GrowthProgress >= RequiredGrowthDays)
+    {
+        CropState = EFarmCropState::Harvestable;
+
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("%s: Crop is ready to harvest!"),
+            *GetName());
+        return;
+    }
+    // Plot is still growing, log the current progress
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("%s: Growth progress %d/%d"),
+        *GetName(),
+        GrowthProgress,
+        RequiredGrowthDays);
+}
+
 bool AFarmPlot::TryTillSoil()
 {
     if (SoilState != EFarmSoilState::Untilled)
@@ -119,20 +209,26 @@ bool AFarmPlot::TryPlantSeed()
 bool AFarmPlot::TryWaterCrop()
 {
     if (SoilState != EFarmSoilState::Tilled)
-    {
         return false;
-    }
-
     if (CropState != EFarmCropState::Growing)
-    {
         return false;
-    }
-
     if (bIsWatered)
-    {
         return false;
-    }
 
     bIsWatered = true;
+    return true;
+}
+
+bool AFarmPlot::TryHarvestCrop()
+{
+    if (SoilState != EFarmSoilState::Tilled)
+        return false;
+    if (CropState != EFarmCropState::Harvestable)
+        return false;
+
+    CropState = EFarmCropState::Empty;
+    GrowthProgress = 0;
+    bIsWatered = false;
+
     return true;
 }

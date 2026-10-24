@@ -164,6 +164,23 @@ void UInteractionComponent::UpdateTarget()
 		}
 	}
 
+	FText NewInteractionText = FText::GetEmpty();
+
+	if (IsValid(BestCandidate))
+	{
+		NewInteractionText =
+			IInteractable::Execute_GetInteractionText(
+				BestCandidate);
+	}
+
+	if (!CachedInteractionText.EqualTo(NewInteractionText))
+	{
+		CachedInteractionText = NewInteractionText;
+
+		OnInteractionTextChanged.Broadcast(
+			CachedInteractionText);
+	}
+
 	if (CurrentTarget.Get() != BestCandidate)
 	{
 		CurrentTarget = BestCandidate;
